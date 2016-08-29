@@ -574,15 +574,6 @@
         following steps:</p>
         <ol>
           <li>
-            <p>Let <var>connection</var> be the current <code>
-            <a>RTCPeerConnection</a></code> object.</p>
-          </li>
-          <li>
-            <p>If <var>connection</var>'s [[<a>isClosed</a>]] slot is
-            <code>true</code>, return a promise rejected with an
-            <code>InvalidStateError</code>.</p>
-          </li>
-          <li>
             <p>Let <var>operation</var> be the operation to be enqueued.</p>
           </li>
           <li>
@@ -597,37 +588,17 @@
           </li>
           <li>
             <p>Upon fulfillment or rejection of the promise returned by the
-            <var>operation</var>, run the following steps:</p>
+            <var>operation</var>, fulfill or reject <var>p</var> with the corresponding
+            value or reason. Upon fulfillment or rejection of <var>p</var>,
+            execute the following steps:</p>
             <ol>
               <li>
-                <p>If <var>connection</var>'s [[<a>isClosed</a>]] slot is
-                <code>true</code>, abort these steps.</p>
+                <p>Remove the first element of [[<a>operations</a>]].</p>
               </li>
               <li>
-                <p>If the promise returned by <var>operation</var> was fulfilled
-                with a value, fulfill <var>p</var> with that value.</p>
-              </li>
-              <li>
-                <p>If the promise returned by <var>operation</var> was rejected
-                with a value, reject <var>p</var> with that value.</p>
-              </li>
-              <li>
-                <p>Upon fulfillment or rejection of <var>p</var>, execute the
-                following steps:</p>
-                <ol>
-                  <li>
-                    <p>If <var>connection</var>'s [[<a>isClosed</a>]] slot is
-                    <code>true</code>, abort these steps.</p>
-                  </li>
-                  <li>
-                    <p>Remove the first element of [[<a>operations</a>]].</p>
-                  </li>
-                  <li>
-                    <p>If [[<a>operations</a>]] is non-empty, execute the
-                    operation represented by the first element of
-                    [[<a>operations</a>]].</p>
-                  </li>
-                </ol>
+                <p>If [[<a>operations</a>]] is non-empty, execute the
+                operation represented by the first element of
+                [[<a>operations</a>]].</p>
               </li>
             </ol>
           </li>
@@ -1280,7 +1251,19 @@ interface RTCPeerConnection : EventTarget  {
                 <p>If the <code>RTCPeerConnection</code> is configured to
                 generate Identity assertions by calling
                 <code>setIdentityProvider</code>, then the session description
-                SHALL contain an appropriate assertion.</p>
+                SHALL contain an appropriate assertion. If the identity
+                provider is unable to produce an identity assertion, the call
+                to <code>createOffer</code> MUST be rejected with a
+                <code>DOMException</code> that has a name of
+                <code>NotReadableError</code>.</p>
+                <p>If this <code>RTCPeerConnection</code> object is closed
+                before the SDP generation process completes, the user agent
+                MUST suppress the result and not resolve or reject the returned
+                promise.</p>
+                <p>If the SDP generation process completed successfully, the
+                user agent MUST resolve the returned promise with a newly
+                created <code><a>RTCSessionDescription</a></code> object,
+                representing the generated offer.</p>
                 <p class="fingerprint">The SDP generation process exposes a
                 subset of the media capabilities of the underlying system,
                 which provides generally persistent cross-origin information on
@@ -1288,87 +1271,10 @@ interface RTCPeerConnection : EventTarget  {
                 application. In privacy-sensitive contexts, browsers can
                 consider mitigations such as generating SDP matching only a
                 common subset of the capabilities.</p>
-                <p>When the method is called, the User Agent MUST run the
-                following steps:</p>
-                <ol>
-                  <li>
-                    <p>Let <var>connection</var> be the
-                    <code><a>RTCPeerConnection</a></code> object on which the
-                    method was invoked.</p>
-                  </li>
-                  <li>
-                    <p>Return the result of <a href=
-                    "#enqueue-an-operation">enqueuing</a> the following
-                    steps:</p>
-                    <ol>
-                      <li>
-                        <p>Let <var>p</var> be a new promise.</p>
-                      </li>
-                      <li>
-                        <p>In parallel, start the process to generate an SDP
-                        offer, as described in <span data-jsep=
-                        "create-offer">[[!JSEP]]</span>.</p>
-                        <ol>
-                          <li>
-                            <p>If the process to generate an SDP offer failed
-                            for any reason, or if the identity provider was
-                            unable to produce an identity assertion, the User
-                            Agent MUST queue a task that runs the following
-                            steps:</p>
-                            <ol>
-                              <li>
-                                <p>If <var>connection</var>'s [[<a>isClosed</a>]]
-                                slot is <code>true</code>, then abort these
-                                steps.</p>
-                              </li>
-                              <li>
-                                <p>If the identity provider was unable to
-                                produce an identity assertion, reject
-                                <var>p</var> with a <code>DOMException</code>
-                                object whose <code>name</code> attribute has
-                                the value <code>NotReadableError</code>, and
-                                abort these steps.</p>
-                              </li>
-                              <li>
-                                <p>Reject <var>p</var> with a
-                                <code>DOMException</code> object whose
-                                <code>name</code> attribute has the value
-                                <code>OperationError</code>.</p>
-                              </li>
-                            </ol>
-                          </li>
-                          <li>
-                            <p>If an SDP offer, <var>sdpString</var>, was
-                            successfully generated, the User Agent MUST queue a
-                            task that runs the following steps:</p>
-                            <ol>
-                              <li>
-                                <p>If <var>connection</var>'s [[<a>isClosed</a>]]
-                                slot is <code>true</code>, then abort these
-                                steps.</p>
-                              </li>
-                              <li>
-                                <p>Let <var>offer</var> be a newly created
-                                <code><a>RTCSessionDescriptionInit</a></code>
-                                dictionary with its <code>type</code> member
-                                initialized to the string <code>"offer"</code>
-                                and its <code>sdp</code> member initialized to
-                                <var>sdpString</var>.</p>
-                              </li>
-                              <li>
-                                <p>Resolve <var>p</var> with
-                                <var>offer</var>.</p>
-                              </li>
-                            </ol>
-                          </li>
-                        </ol>
-                      </li>
-                      <li>
-                        <p>Return <var>p</var>.</p>
-                      </li>
-                    </ol>
-                  </li>
-                </ol>
+                <p>If the SDP generation process failed for any other reason,
+                the user agent MUST reject the returned promise with an
+                <code>DOMException</code> object of type
+                <code>OperationError</code> as its argument.</p>
                 <table class="parameters">
                   <tbody>
                     <tr>
@@ -1429,101 +1335,23 @@ interface RTCPeerConnection : EventTarget  {
                 <p>If the <code>RTCPeerConnection</code> is configured to
                 generate Identity assertions by calling
                 <a>setIdentityProvider</a>, then the session description SHALL
-                contain an appropriate assertion.</p>
-                <p>When the method is called, the User Agent MUST run the
-                following steps:</p>
-                <ol>
-                  <li>
-                    <p>Let <var>connection</var> be the
-                    <code><a>RTCPeerConnection</a></code> object on which the
-                    method was invoked.</p>
-                  </li>
-                  <li>
-                    <p>Return the result of <a href=
-                    "#enqueue-an-operation">enqueuing</a> the following
-                    steps:</p>
-                    <ol>
-                      <li>
-                        <p>If <code><a data-for=
-                        "RTCPeerConnection">remoteDescription</a></code> is
-                        <code>null</code> return a promise rejected with an
-                        <code>InvalidStateError</code>.</p>
-                      </li>
-                      <li>
-                        <p>Let <var>p</var> be a new promise.</p>
-                      </li>
-                      <li>
-                        <p>In parallel, start the process to generate an SDP
-                        answer, as described in <span data-jsep=
-                        "generating-an-answer">[[!JSEP]]</span>.</p>
-                        <ol>
-                          <li>
-                            <p>If the process to generate an SDP answer failed
-                            for any reason, or if the identity provider was
-                            unable to produce an identity assertion, the User
-                            Agent MUST queue a task that runs the following
-                            steps:</p>
-                            <ol>
-                              <li>
-                                <p>If <var>connection</var>'s [[<a>isClosed</a>]]
-                                slot is <code>true</code>, then abort these
-                                steps.</p>
-                              </li>
-                              <li>
-                                <p>If the identity provider was unable to
-                                produce an identity assertion, reject
-                                <var>p</var> with a <code>DOMException</code>
-                                object whose <code>name</code> attribute has
-                                the value <code>NotReadableError</code>, and
-                                abort these steps.</p>
-                              </li>
-                              <li>
-                                <p>Reject <var>p</var> with a
-                                <code>DOMException</code> object whose
-                                <code>name</code> attribute has the value
-                                <code>OperationError</code>.</p>
-                              </li>
-                            </ol>
-                          </li>
-                          <li>
-                            <p>If an SDP answer, <var>sdpString</var>, was
-                            successfully generated, the User Agent MUST queue a
-                            task that runs the following steps:</p>
-                            <ol>
-                              <li>
-                                <p>If <var>connection</var>'s [[<a>isClosed</a>]]
-                                slot is <code>true</code>, then abort these
-                                steps.</p>
-                              </li>
-                              <li>
-                                <p>Let <var>answer</var> be a newly created
-                                <code><a>RTCSessionDescriptionInit</a></code>
-                                dictionary with its <code>type</code> member
-                                initialized to the string <code>"answer"</code>
-                                and its <code>sdp</code> member initialized to
-                                <var>sdpString</var>.</p>
-                              </li>
-                              <li>
-                                <p>Unless all non-stopped <code>
-                                <a>RTCRtpTransceiver</a></code>s are
-                                represented in <var>answer</var>, mark
-                                <var>connection</var> as needing
-                                negotiation.</p>
-                              </li>
-                              <li>
-                                <p>Resolve <var>p</var> with
-                                <var>answer</var>.</p>
-                              </li>
-                            </ol>
-                          </li>
-                        </ol>
-                      </li>
-                      <li>
-                        <p>Return <var>p</var>.</p>
-                      </li>
-                    </ol>
-                  </li>
-                </ol>
+                contain an appropriate assertion. If the identity provider is
+                unable to produce an identity assertion, the call to
+                <code>createAnswer</code> MUST be rejected with a
+                <code>DOMException</code> that has a name of
+                <code>NotReadableError</code>.</p>
+                <p>If this <code>RTCPeerConnection</code> object is closed
+                before the SDP generation process completes, the user agent
+                MUST suppress the result and not resolve or reject the returned
+                promise.</p>
+                <p>If the SDP generation process completed successfully, the
+                user agent MUST resolve the returned promise with a newly
+                created <code><a>RTCSessionDescription</a></code> object,
+                representing the generated answer.</p>
+                <p>If the SDP generation process failed for any reason, the
+                user agent MUST reject the returned promise with a
+                <code>DOMException</code> object of type
+                <code>OperationError</code>.</p>
                 <table class="parameters">
                   <tbody>
                     <tr>
@@ -1693,6 +1521,11 @@ interface RTCPeerConnection : EventTarget  {
                     "#enqueue-an-operation">enqueuing</a> the following
                     steps:</p>
                     <ol>
+                      <li>
+                        <p>If <var>connection</var>'s [[<a>isClosed</a>]] slot
+                        is <code>true</code>, return a promise rejected with an
+                        <code>InvalidStateError</code>.</p>
+                      </li>
                       <li>
                         <p>Let <var>p</var> be a new promise.</p>
                       </li>
@@ -3060,7 +2893,9 @@ interface RTCSessionDescription {
         operations include adding or stopping a track, or adding the first data
         channel.</p>
         <p>Internal changes within the implementation can also result in the
-        connection being marked as needing negotiation.</p>
+        connection being marked as needing negotiation. For example, if a
+        <code><a>MediaStreamTrack</a></code> enters the ended state because its
+        source device became unavailable.</p>
       </section>
       <section>
         <h4>Clearing Negotiation-Needed</h4>
@@ -3070,8 +2905,9 @@ interface RTCSessionDescription {
         for an offer or answer), and the supplied description matches the state
         of the tracks/datachannels that currenly exist on the
         <code><a>RTCPeerConnection</a></code>. Specifically, this means that
-        all tracks have an associated section in the local description
-        with their MSID, and, if any data channels have been created, a data
+        all live tracks have an associated section in the local description
+        with their MSID, all ended tracks have been removed from the local
+        description, and, if any data channels have been created, a data
         section exists in the local description.</p>
         <p>Note that <code>setLocalDescription(answer)</code> will clear the
         negotiation-needed flag only if the offer had a corresponding section
@@ -3998,7 +3834,7 @@ interface RTCPeerConnectionIceErrorEvent : Event {
                   </ol>
                 </li>
                 <li>Let <var>senders</var> be a new sequence consisting of
-              all the <code><a>RTCRtpSender</a></code> objects in
+              all the <code><a>RTCRtpSender</a></code> objects in 
               <var>senderset</var>.
               The conversion from the senders set to the sequence
               is user agent defined and the order does not have
@@ -4036,7 +3872,7 @@ interface RTCPeerConnectionIceErrorEvent : Event {
                   </ol>
                 </li>
                 <li>Let <var>receivers</var> be a new sequence consisting of
-              all the <code><a>RTCRtpReceiver</a></code> objects in
+              all the <code><a>RTCRtpReceiver</a></code> objects in 
               <var>receiverset</var>.
               The conversion from the receivers set to the sequence
               is user agent defined and the order does not have
@@ -4386,16 +4222,7 @@ interface RTCPeerConnectionIceErrorEvent : Event {
                 </li>
                 <li>
                   <p><a>Create an RTCRtpReceiver</a> with <var>kind</var> and
-                  let <var>receiver</var> be the result. This specification
-                  does not define how to configure <code>createOffer</code>
-                  to receive multiple RTP encodings. However when
-                  <code>setRemoteDescription</code> is called with a
-                  corresponding remote description that is able to send
-                  multiple RTP encodings as defined in [[!JSEP]], the <code>
-                  <a>RTCRtpReceiver</a></code> may receive multiple RTP encodings
-                  and the parameters retrieved via the transceiver's
-                  <code>receiver.getParameters()</code> will reflect the
-                  encodings negotiated.</p>
+                  let <var>receiver</var> be the result.</p>
                 </li>
                 <li>
                   <p><a>Create an RTCRtpTransceiver</a> with <var>sender</var>
@@ -4989,9 +4816,7 @@ sender.setParameters(params)
                     <li>
                       <p>Determine if negotiation is needed to transmit
                       <var>withTrack</var> in place of the sender's existing
-                      track. Negotiation is not needed if the sender's existing
-                      track is ended (which appears as though the track was
-                      muted). Ignore which <code>MediaStream</code> the track
+                      track. Ignore which <code>MediaStream</code> the track
                       resides in and the <code>id</code> attribute of the track
                       in this determination. If negotiation is needed, then
                       reject <var>p</var> with
@@ -5000,7 +4825,7 @@ sender.setParameters(params)
                     </li>
                     <li>
                       <p>Have the sender switch seamlessly to transmitting
-                      <var>withTrack</var> instead of the sender's existing track,
+                      <var>withTrack</var> in place of what it is sending,
                       without negotiating.</p>
                     </li>
                     <li>
@@ -5313,7 +5138,7 @@ sender.setParameters(params)
                             </td>
                             <td>Sender</td>
                             <td>Read/Write</td>
-                        </tr>
+                        </tr>                   
                         <tr id="def-rid*">
                            <td><dfn>rid</dfn></td>
                             <td>
@@ -5648,13 +5473,13 @@ sender.setParameters(params)
             "idlAttrType"><a>MediaStreamTrack</a></span>, readonly</dt>
             <dd>
             <p>
-                The <code id="dom-rtpreceiver-track">track</code>
-                attribute is the track that is associated with this
-                <code><a>RTCRtpReceiver</a></code> object. Note that
-                <code>track.stop()</code> is final, although clones
-                are not affected. Since <code>receiver.track.stop()</code> does
-                not implicitly stop <var>receiver</var>,
-                Receiver Reports continue to be sent.
+            	The <code id="dom-rtpreceiver-track">track</code>
+            	attribute is the track that is associated with this
+            	<code><a>RTCRtpReceiver</a></code> object. Note that
+            	<code>track.stop()</code> is final, although clones
+            	are not affected. Since <code>receiver.track.stop()</code> does
+            	not implicitly stop <var>receiver</var>, 
+            	Receiver Reports continue to be sent.
             </p>
             </dd>
             <dt><code>transport</code> of type <span class=
@@ -7720,8 +7545,8 @@ interface RTCDataChannelEvent : Event {
     <section>
       <h4>RTCDTMFSender</h4>
       <div>
-        <pre class="idl">[NoInterfaceObject]
-interface RTCDTMFSender {
+        <pre class="idl">
+interface RTCDTMFSender : EventTarget {
     void insertDTMF (DOMString tones, optional unsigned long duration = 100, optional unsigned long interToneGap = 70);
                     attribute EventHandler ontonechange;
     readonly        attribute DOMString    toneBuffer;
@@ -7793,8 +7618,9 @@ interface RTCDTMFSender {
               each character passed in the tones parameters. The duration
               cannot be more than 8000 ms or less than 40 ms. The default
               duration is 100 ms for each tone.</p>
-              <p>The interToneGap parameter indicates the gap between tones. It
-              MUST be at least 30 ms. The default value is 70 ms.</p>
+              <p>The interToneGap parameter indicates the gap between tones. The
+              user agent clamps it to at least 30 ms. The default value is 70
+              ms.</p>
               <p>The browser MAY increase the duration and interToneGap times
               to cause the times that DTMF start and stop to align with the
               boundaries of RTP packets but it MUST not increase either of them
@@ -8422,15 +8248,14 @@ function processStats() {
         realm</dfn></a> that operates in the origin of the loaded JavaScript.
         Note that a redirect will change the origin of the loaded script.</p>
         <p>The <a>realm</a> is populated with a global that implements
-        both the <code><a>RTCIdentityProviderGlobalScope</a></code> and
-        <code>WorkerGlobalScope</code> [[!WEBWORKERS]] interfaces.</p>
+        <code>WorkerGlobalScope</code> [[!WEBWORKERS]].</p>
         <p>The user agent provides an instance of
         <code><a>RTCIdentityProviderRegistrar</a></code> named
         <var>rtcIdentityProvider</var> in the global scope of the <a>realm</a>.
         This object is used by the IdP to interact with the user agent.</p>
         <div>
-          <pre class="idl">[Global, Exposed=RTCIdentityProviderGlobalScope]
-interface RTCIdentityProviderGlobalScope : WorkerGlobalScope {
+          <pre class="idl">
+          interface RTCIdentityProviderGlobalScope : WorkerGlobalScope {
     readonly        attribute RTCIdentityProviderRegistrar rtcIdentityProvider;
 };</pre>
           <section>
@@ -8481,8 +8306,7 @@ interface RTCIdentityProviderGlobalScope : WorkerGlobalScope {
       user agent cannot use the IdP proxy and MUST fail any future attempt to
       interact with the IdP.</p>
       <div>
-        <pre class="idl">[Exposed=RTCIdentityProviderGlobalScope]
-interface RTCIdentityProviderRegistrar {
+        <pre class="idl">interface RTCIdentityProviderRegistrar {
     void register (RTCIdentityProvider idp);
 };</pre>
         <section>
